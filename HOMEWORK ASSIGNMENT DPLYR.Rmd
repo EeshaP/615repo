@@ -1,0 +1,225 @@
+---
+title: "dplyrcompleted"
+author: ""
+date: "September 22, 2017"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(nycflights13)
+library(tidyverse)
+library(dplyr)
+```
+
+## Data Manipulation
+
+Pick observations by their values (filter()).  
+
+Reorder the rows (arrange()).  
+
+Pick variables by their names (select()).  
+
+Create new variables with functions of existing variables (mutate()).
+
+Collapse many values down to a single summary (summarise()).
+
+## All verbs work similarly:  
+
+The first argument is a data frame.  
+
+The subsequent arguments describe what to do with the data frame, using the variable names (without quotes).  
+
+The result is a new data frame.  
+
+## OK, but what is a tibble?
+
+[Look here for everything you want to know](http://bit.ly/2ffxvfM)  
+
+
+
+
+##Moving on with dplyr.. filter()
+
+filter() allows you to subset observations based on their values.
+
+```{r }
+
+filter(flights, month == 1, day == 1)
+
+```
+
+
+## R either prints out the results, or saves them to a variable.
+
+If you want to do both, you can wrap the assignment in parentheses:
+
+```{r}
+(jan1 <- filter(flights, month == 1, day == 1))
+
+```
+##Finding flights that arrived late, but left on time
+
+```{r }
+
+filter( flights, arr_delay >0 , dep_delay <= 0)
+
+
+
+```
+
+## arrange()
+
+arrange() works similarly to filter()   
+except that instead of selecting rows,   
+it changes their order.
+
+```{r}
+arrange(flights, year, month, day)
+```
+
+
+## desc()
+
+Use desc() to re-order by a column in descending order:
+
+```{r}
+arrange(flights, desc(arr_delay))
+```
+
+
+##select can also be used to make new tables with only the necessary observations 
+
+```{r }
+
+
+flight.lga <- filter(flights, origin == "LGA") 
+select(flight.lga, origin, contains("TIME"))
+
+```
+
+
+## mutate - add variables
+
+```{r }
+
+
+flights_sml <- select(flights, origin,
+  year:day, ##this selects columns from year to day
+  ends_with("delay"), 
+  distance, 
+  air_time)
+```
+#now we add columns
+
+```{r }
+mutate(flights_sml, origin,
+  gain = arr_delay - dep_delay,
+  speed = distance / air_time * 60)
+#Two columns were added to the dataframe!
+
+
+
+
+
+
+```
+
+##transmute - delete columns from the dataframe
+
+```{r }
+
+
+
+transmute(flights, origin, 
+  gain = arr_delay - dep_delay,
+  hours = air_time / 60)
+
+
+
+```
+
+## summarize
+this gives us the mean delay, even though it's pretty pointless to get it sorted according to carrier 
+group_by() and summarize() are used to create useful grouped summaries
+```{r }
+delays <- flights %>% ##this is the pipe operator. Read it as "then"
+ group_by(dest) %>% 
+  summarise(
+    count = n(),
+    dist = mean(distance, na.rm = TRUE),
+    delay = mean(arr_delay, na.rm = TRUE)
+  ) %>% 
+  filter(count > 20, dest != "HNL")
+delays
+
+##what this code essentially does is a series of commands using then to link them.
+```
+
+
+##Grouping by multiple variables
+
+```{r }
+
+#By grouping in layers we're peeling off a level of grouping. Look what happens now...
+daily <- group_by(flights, year, month, day)
+
+```
+
+##Using the daily dataset...
+```{r }
+(per_day   <- summarise(daily, flights = n()))
+
+
+```
+
+##We're reducing the variables...
+```{r } 
+(per_month <- summarise(per_day, flights = sum(flights)))
+
+
+
+```
+##We found the total number of flights per year!!
+
+```{r }
+
+
+(per_year  <- summarise(per_month, flights = sum(flights)))
+
+
+```
+
+
+
+
+
+##Won't it be cool to visualize our EDA?
+
+```{r }
+
+## first, save this dataset to rule out NA values. We don't like NA values
+
+not_cancelled <- flights %>% 
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+delays <- not_cancelled %>% 
+  group_by(tailnum) %>% 
+  summarise(
+    delay = mean(arr_delay)
+  )
+
+```
+
+
+## Let's plot!
+```{r }
+ggplot(data = delays, mapping = aes(x = delay)) + 
+  geom_freqpoly(binwidth = 10)
+
+```
+
+
+
+## And from what we see, some flights have an average delay of 300 minutes. These are the kinds of observations we do EDA for. Have fun exploring!
+
